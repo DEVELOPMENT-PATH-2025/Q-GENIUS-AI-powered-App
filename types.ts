@@ -55,6 +55,11 @@ export interface QuestionPaper {
   durationMinutes: number;
   adminFeedback?: string;
   templateId?: string; // ID of the uploaded college format
+  instituteName?: string;
+  subjectName?: string;
+  examDate?: string;
+  maxMarks?: number;
+  enrollmentNo?: string;
 }
 
 export interface PaperTemplate {

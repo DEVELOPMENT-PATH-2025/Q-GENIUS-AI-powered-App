@@ -18,7 +18,8 @@ import {
   PlusCircle,
   Layers,
   FileDown,
-  FileType
+  FileType,
+  Zap
 } from 'lucide-react';
 import { generateQuestionsFromPrompt, analyzeCurriculum } from '../services/geminiService';
 import { savePaperToDB, getPapersForFaculty } from '../services/mockServices';
@@ -37,6 +38,12 @@ const FacultyDashboard: React.FC<FacultyDashboardProps> = ({ userId, userName, c
   const [generatedQuestions, setGeneratedQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [paperTitle, setPaperTitle] = useState('');
+  const [instituteName, setInstituteName] = useState('');
+  const [subjectName, setSubjectName] = useState('');
+  const [subjectCode, setSubjectCode] = useState('');
+  const [examDate, setExamDate] = useState('');
+  const [maxMarks, setMaxMarks] = useState('');
+  const [enrollmentNo, setEnrollmentNo] = useState('');
   const [isSaved, setIsSaved] = useState(false);
   
   const [showAddModal, setShowAddModal] = useState(false);
@@ -62,8 +69,38 @@ const FacultyDashboard: React.FC<FacultyDashboardProps> = ({ userId, userName, c
     if (!prompt) return;
     setIsLoading(true);
     try {
-      const questions = await generateQuestionsFromPrompt(prompt, 5, Difficulty.MEDIUM);
+      // Extract count if mentioned (e.g., "10 questions")
+      const countMatch = prompt.match(/(\d+)\s*(?:questions|ques|q)/i);
+      const count = countMatch ? parseInt(countMatch[1]) : 5;
+
+      // Extract marks if mentioned (e.g., "42 marks")
+      const marksMatch = prompt.match(/(\d+)\s*(?:marks|mark|pts|points)/i);
+      const targetMarks = marksMatch ? parseInt(marksMatch[1]) : (maxMarks ? parseInt(maxMarks) : undefined);
+
+      const contextPrompt = `
+        Subject: ${subjectName || 'General'}
+        Subject Code: ${subjectCode || 'N/A'}
+        Context: ${prompt}
+      `;
+      
+      const questions = await generateQuestionsFromPrompt(
+        contextPrompt, 
+        count, 
+        Difficulty.MEDIUM, 
+        targetMarks
+      );
+      
       setGeneratedQuestions(prev => [...prev, ...questions]);
+      
+      // Auto-set paper title if empty
+      if (!paperTitle && subjectName) {
+        setPaperTitle(`${subjectName} - ${new Date().getFullYear()}`);
+      }
+      
+      // Sync maxMarks if extracted from prompt
+      if (targetMarks && !maxMarks) {
+        setMaxMarks(targetMarks.toString());
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -124,15 +161,20 @@ const FacultyDashboard: React.FC<FacultyDashboardProps> = ({ userId, userName, c
     setIsLoading(true);
     const paper: QuestionPaper = {
         id: `paper-${Date.now()}`,
-        title: paperTitle,
-        courseCode: "CS-TEMP",
+        title: paperTitle || subjectName || "Untitled Paper",
+        courseCode: subjectCode || "CS-TEMP",
         facultyId: userId,
         facultyName: userName,
         createdAt: new Date().toISOString(),
         status: PaperStatus.PENDING_APPROVAL,
         questions: generatedQuestions,
         totalMarks: generatedQuestions.reduce((acc, q) => acc + q.marks, 0),
-        durationMinutes: 90
+        durationMinutes: 90,
+        instituteName,
+        subjectName,
+        examDate,
+        maxMarks: Number(maxMarks),
+        enrollmentNo
     };
     
     await savePaperToDB(paper);
@@ -346,6 +388,68 @@ const FacultyDashboard: React.FC<FacultyDashboardProps> = ({ userId, userName, c
                     exit={{ opacity: 0, y: -10 }}
                     className="space-y-6"
                   >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700">Institute Name</label>
+                          <input 
+                            type="text" 
+                            className="input-field" 
+                            placeholder="e.g. Stanford University"
+                            value={instituteName}
+                            onChange={(e) => setInstituteName(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700">Subject Name</label>
+                          <input 
+                            type="text" 
+                            className="input-field" 
+                            placeholder="e.g. Data Structures & Algorithms"
+                            value={subjectName}
+                            onChange={(e) => setSubjectName(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700">Subject Code</label>
+                          <input 
+                            type="text" 
+                            className="input-field" 
+                            placeholder="e.g. CS101"
+                            value={subjectCode}
+                            onChange={(e) => setSubjectCode(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700">Date of Exam</label>
+                          <input 
+                            type="date" 
+                            className="input-field" 
+                            value={examDate}
+                            onChange={(e) => setExamDate(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700">Maximum Marks</label>
+                          <input 
+                            type="number" 
+                            className="input-field" 
+                            placeholder="e.g. 100"
+                            value={maxMarks}
+                            onChange={(e) => setMaxMarks(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700">Enrollment No.</label>
+                          <input 
+                            type="text" 
+                            className="input-field" 
+                            placeholder="e.g. 2024-CS-001"
+                            value={enrollmentNo}
+                            onChange={(e) => setEnrollmentNo(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700">Describe your requirements</label>
                         <textarea 

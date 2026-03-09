@@ -10,20 +10,41 @@ export const exportToPDF = (paper: QuestionPaper) => {
   let yPos = 20;
 
   // Header
-  doc.setFontSize(22);
+  if (paper.instituteName) {
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text(paper.instituteName, 105, yPos, { align: 'center' });
+    yPos += 12;
+  }
+
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.text(paper.title, 105, yPos, { align: 'center' });
   yPos += 15;
 
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
+  
+  if (paper.subjectName) {
+    doc.text(`Subject: ${paper.subjectName}`, margin, yPos);
+    if (paper.examDate) {
+      doc.text(`Date: ${paper.examDate}`, 190, yPos, { align: 'right' });
+    }
+    yPos += 7;
+  }
+
   doc.text(`Course Code: ${paper.courseCode}`, margin, yPos);
   doc.text(`Duration: ${paper.durationMinutes} mins`, 190, yPos, { align: 'right' });
   yPos += 7;
 
   doc.text(`Faculty: ${paper.facultyName}`, margin, yPos);
-  doc.text(`Total Marks: ${paper.totalMarks}`, 190, yPos, { align: 'right' });
-  yPos += 15;
+  doc.text(`Max Marks: ${paper.maxMarks || paper.totalMarks}`, 190, yPos, { align: 'right' });
+  yPos += 7;
+
+  if (paper.enrollmentNo) {
+    doc.text(`Enrollment No: ${paper.enrollmentNo}`, margin, yPos);
+    yPos += 7;
+  }
 
   doc.setLineWidth(0.5);
   doc.line(margin, yPos, 190, yPos);
@@ -81,10 +102,23 @@ export const exportToDocx = async (paper: QuestionPaper) => {
       {
         properties: {},
         children: [
+          ...(paper.instituteName ? [
+            new Paragraph({
+              text: paper.instituteName,
+              heading: HeadingLevel.HEADING_1,
+              alignment: AlignmentType.CENTER,
+            })
+          ] : []),
           new Paragraph({
             text: paper.title,
-            heading: HeadingLevel.HEADING_1,
+            heading: HeadingLevel.HEADING_2,
             alignment: AlignmentType.CENTER,
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Subject: ${paper.subjectName || paper.title}`, bold: true }),
+              ...(paper.examDate ? [new TextRun({ text: `\t\t\t\tDate: ${paper.examDate}`, bold: true })] : []),
+            ],
           }),
           new Paragraph({
             children: [
@@ -95,9 +129,14 @@ export const exportToDocx = async (paper: QuestionPaper) => {
           new Paragraph({
             children: [
               new TextRun({ text: `Faculty: ${paper.facultyName}`, bold: true }),
-              new TextRun({ text: `\t\t\t\tTotal Marks: ${paper.totalMarks}`, bold: true }),
+              new TextRun({ text: `\t\t\t\tMax Marks: ${paper.maxMarks || paper.totalMarks}`, bold: true }),
             ],
           }),
+          ...(paper.enrollmentNo ? [
+            new Paragraph({
+              children: [new TextRun({ text: `Enrollment No: ${paper.enrollmentNo}`, bold: true })],
+            })
+          ] : []),
           new Paragraph({ text: "" }),
           new Paragraph({
             border: { bottom: { color: "auto", space: 1, style: BorderStyle.SINGLE, size: 6 } },
